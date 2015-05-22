@@ -13,7 +13,7 @@ typealias Line = (index: Int, content: String)
 
 extension File {
     public func matchPattern(pattern: String, withSyntaxKinds syntaxKinds: [SyntaxKind] = []) ->
-        [NSRange] {
+        [NSTextCheckingResult] {
         return flatMap(NSRegularExpression(pattern: pattern, options: nil, error: nil)) { regex in
             let range = NSRange(location: 0, length: count(self.contents.utf16))
             let syntax = SyntaxMap(file: self)
@@ -34,7 +34,7 @@ extension File {
                             return nil
                         }
                     }
-                    return match.range
+                    return match
                 })
             }
         } ?? []

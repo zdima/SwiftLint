@@ -12,9 +12,9 @@ struct ForceCastRule: Rule {
     let identifier = "force_cast"
 
     func validateFile(file: File) -> [StyleViolation] {
-        return file.matchPattern("as!", withSyntaxKinds: [.Keyword]).map { range in
+        return file.matchPattern("as!", withSyntaxKinds: [.Keyword]).map { match in
             return StyleViolation(type: .ForceCast,
-                location: Location(file: file, offset: range.location),
+                location: Location(file: file, offset: match.range.location),
                 severity: .High,
                 reason: "Force casts should be avoided")
         }

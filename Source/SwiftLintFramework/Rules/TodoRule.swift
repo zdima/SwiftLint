@@ -12,9 +12,9 @@ struct TodoRule: Rule {
     let identifier = "todo"
 
     func validateFile(file: File) -> [StyleViolation] {
-        return file.matchPattern("// (TODO|FIXME):", withSyntaxKinds: [.Comment]).map { range in
+        return file.matchPattern("// (TODO|FIXME):", withSyntaxKinds: [.Comment]).map { match in
             return StyleViolation(type: .TODO,
-                location: Location(file: file, offset: range.location),
+                location: Location(file: file, offset: match.range.location),
                 severity: .Low,
                 reason: "TODOs and FIXMEs should be avoided")
         }
