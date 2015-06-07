@@ -10,10 +10,14 @@ import Foundation
 import SwiftXPC
 import SourceKittenFramework
 
+private var ruleDictionary: [String:Bool] = [:]
+
 public struct Linter {
     private let file: File
-
-    private let rules: [Rule] = [
+    /**
+     * List of all rules. Update this list when new rule is added.
+     */
+    private let defaultRules: [Rule] = [
         LineLengthRule(),
         LeadingWhitespaceRule(),
         TrailingWhitespaceRule(),
@@ -31,8 +35,90 @@ public struct Linter {
         ControlStatementRule()
     ]
 
+    private var rules: [Rule]!
+
+    // Load configuration and update rules settings.
+    private func loadRules() {
+        // by default enable all rules
+        for rule in defaultRules {
+            ruleDictionary.updateValue(true, forKey: rule.identifier)
+        }
+        let fileManager: NSFileManager = NSFileManager.defaultManager()
+        let urls: [AnyObject] = fileManager.URLsForDirectory(
+            .LibraryDirectory, inDomains: .UserDomainMask)
+        if urls.count > 0 {
+            if let libraryURL = urls[urls.count-1] as? NSURL {
+                let SwiftLintFolder: NSURL = libraryURL.URLByAppendingPathComponent(
+                    "SwiftLint", isDirectory: true)
+                let configurationFile = SwiftLintFolder.URLByAppendingPathComponent(
+                    "config.json", isDirectory: false)
+                if !fileManager.fileExistsAtPath(SwiftLintFolder.path!) {
+                    fileManager.createDirectoryAtURL(SwiftLintFolder,
+                        withIntermediateDirectories: true, attributes: nil, error: nil)
+                    return
+                }
+                var config: NSMutableDictionary = NSMutableDictionary()
+                if fileManager.fileExistsAtPath(configurationFile.path!) {
+                    // Load file
+                    if let configObject = load( configurationFile ) {
+                        config = configObject
+                        // Update default value with configuration
+                        if let configRules = config["rules"] as? [String:Bool] {
+                            for (aKey,aValue) in configRules {
+                                ruleDictionary[aKey] = aValue
+                            }
+                        }
+                    }
+                }
+                config.setObject(ruleDictionary, forKey: "rules")
+                save(config, toFileURL: configurationFile)
+            }
+        }
+    }
+
+    // Load configuration
+    private func load( fromFile: NSURL) -> NSMutableDictionary? {
+        var error: NSError?
+        if let data = NSData(contentsOfURL: fromFile,
+            options: NSDataReadingOptions.allZeros, error: &error) {
+                if let configObject = NSJSONSerialization.JSONObjectWithData(data,
+                    options: NSJSONReadingOptions.MutableContainers,
+                    error: &error) as? NSMutableDictionary {
+                    return configObject
+                }
+        }
+        return nil
+    }
+
+    // Save configuration
+    private func save( configuration: NSDictionary, toFileURL: NSURL) {
+        var error: NSError?
+        if let data: NSData? = NSJSONSerialization.dataWithJSONObject( configuration,
+            options: NSJSONWritingOptions.PrettyPrinted, error: &error) {
+                data!.writeToURL( toFileURL, atomically:true )
+        }
+    }
+
+    private func getRules() -> [Rule] {
+
+        // initialize ruleDictionary once
+        if ruleDictionary.count == 0 {
+            loadRules()
+        }
+
+        // build array of enabled rules
+        var resultArray: [Rule] = []
+        for rule in defaultRules {
+            if ruleDictionary[rule.identifier] == true {
+                resultArray.append(rule)
+            }
+        }
+
+        return resultArray
+    }
+
     public var styleViolations: [StyleViolation] {
-        return rules.flatMap { $0.validateFile(file) }
+        return rules.flatMap { $0.validateFile(self.file) }
     }
 
     public var ruleExamples: [RuleExample] {
@@ -46,5 +132,6 @@ public struct Linter {
     */
     public init(file: File) {
         self.file = file
+        self.rules = getRules()
     }
 }
