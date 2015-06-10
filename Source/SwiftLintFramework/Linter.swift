@@ -43,6 +43,10 @@ public struct Linter {
         for rule in defaultRules {
             ruleDictionary.updateValue(true, forKey: rule.identifier)
         }
+        loadGlobalRules()
+        loadProjectRules()
+    }
+    func loadGlobalRules() {
         let fileManager: NSFileManager = NSFileManager.defaultManager()
         let urls: [AnyObject] = fileManager.URLsForDirectory(
             .LibraryDirectory, inDomains: .UserDomainMask)
@@ -72,6 +76,39 @@ public struct Linter {
                 }
                 config.setObject(ruleDictionary, forKey: "rules")
                 save(config, toFileURL: configurationFile)
+            }
+        }
+    }
+    func loadProjectRules() {
+        let fileManager: NSFileManager = NSFileManager.defaultManager()
+        let homeURL = NSURL(fileURLWithPath: NSHomeDirectory())
+
+        var fileFolder = NSURL(fileURLWithPath: self.file.path!.lastPathComponent)
+        var config: NSMutableDictionary = NSMutableDictionary()
+        while fileFolder != nil && fileFolder != homeURL {
+            fileFolder = fileFolder!.URLByDeletingLastPathComponent!.absoluteURL
+            if fileFolder != nil {
+                let configurationFile = fileFolder!.URLByAppendingPathComponent(
+                    "lint.config", isDirectory: false)
+                println("check for \(configurationFile)")
+                if fileManager.fileExistsAtPath(configurationFile.path!) {
+                    // Load file
+                    println("loadin \(configurationFile)")
+                    if let configObject = load( configurationFile ) {
+                        config = configObject
+                        // Update default value with configuration
+                        if let configRules = config["rules"] as? [String:Bool] {
+                            for (aKey,aValue) in configRules {
+                                ruleDictionary[aKey] = aValue
+                            }
+                        }
+                    }
+                    config.setObject(ruleDictionary, forKey: "rules")
+                    save(config, toFileURL: configurationFile)
+                    break
+                }
+            } else {
+                break;
             }
         }
     }
