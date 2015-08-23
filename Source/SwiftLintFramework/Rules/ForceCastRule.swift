@@ -14,12 +14,17 @@ public struct ForceCastRule: Rule {
     public let identifier = "force_cast"
 
     public func validateFile(file: File) -> [StyleViolation] {
-        return file.matchPattern("as!", withSyntaxKinds: [.Keyword]).map { range in
-            return StyleViolation(type: .ForceCast,
-                location: Location(file: file, offset: range.location),
-                severity: .High,
-                reason: "Force casts should be avoided")
-        }
+        return file.matchPattern("as!", withSyntaxKinds: [.Keyword]).filter { range in
+                let patternRange = NSMakeRange(range.location,1)
+                let lineRage = (file.contents as NSString).lineRangeForRange(patternRange)
+                let line: NSString = (file.contents as NSString).substringWithRange(lineRage)
+                return line.rangeOfString("// $-\(self.identifier)").location == NSNotFound
+            }.map { range in
+                return StyleViolation(type: .ForceCast,
+                    location: Location(file: file, offset: range.location),
+                    severity: .High,
+                    reason: "Force casts should be avoided")
+            }
     }
 
     public let example = RuleExample(
